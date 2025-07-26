@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Manager - Organize Your Documents</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js"></script>
+</head>
+<body>
+    <!-- Main Container -->
+    <div class="app-container">
+        
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1 class="app-title">📄 PDF Manager</h1>
+                <div class="storage-info">
+                    <div class="storage-usage">
+                        <div class="storage-bar">
+                            <div class="storage-fill" id="storageBar"></div>
+                        </div>
+                        <span class="storage-text" id="storageText">0 MB used</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Folder Tree -->
+            <div class="folder-section">
+                <div class="section-header">
+                    <h3>📁 Folders</h3>
+                    <button class="btn btn--sm btn--primary" id="newFolderBtn">
+                        <span>➕</span> New Folder
+                    </button>
+                </div>
+                <div class="folder-tree" id="folderTree">
+                    <div class="folder-item root-folder active" data-folder-id="root">
+                        <div class="folder-content">
+                            <span class="folder-icon">📁</span>
+                            <span class="folder-name">My Documents</span>
+                            <div class="folder-actions">
+                                <span class="file-count" id="rootFileCount">0 files</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upload Section -->
+            <div class="upload-section">
+                <div class="section-header">
+                    <h3>📤 Upload Files</h3>
+                </div>
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-content">
+                        <div class="upload-icon">📎</div>
+                        <p class="upload-text">
+                            <strong>Drop PDF files here</strong><br>
+                            or <span class="upload-link">click to browse</span>
+                        </p>
+                        <input type="file" id="fileInput" accept=".pdf" multiple style="display: none;">
+                        <div class="upload-note">Max 50MB per file</div>
+                    </div>
+                </div>
+                <div class="upload-progress" id="uploadProgress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">Uploading...</div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <button class="btn btn--outline btn--sm" id="exportDataBtn">📦 Export Data</button>
+                <button class="btn btn--outline btn--sm" id="importDataBtn">📥 Import Data</button>
+                <button class="btn btn--outline btn--sm" id="clearStorageBtn">🗑️ Clear All</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="main-header">
+                <div class="breadcrumb" id="breadcrumb">
+                    <span class="breadcrumb-item active">📁 My Documents</span>
+                </div>
+                <div class="header-actions">
+                    <div class="search-box">
+                        <input type="text" class="form-control" id="searchInput" placeholder="Search PDFs...">
+                        <span class="search-icon">🔍</span>
+                    </div>
+                    <div class="view-toggle">
+                        <button class="btn btn--sm view-btn active" data-view="grid" id="gridViewBtn">⊞</button>
+                        <button class="btn btn--sm view-btn" data-view="list" id="listViewBtn">☰</button>
+                    </div>
+                    <button class="btn btn--sm btn--secondary" id="helpBtn">❓ Help</button>
+                </div>
+            </header>
+
+            <!-- File Grid/List -->
+            <div class="file-container">
+                <div class="files-grid" id="filesGrid">
+                    <!-- Empty State -->
+                    <div class="empty-state" id="emptyState">
+                        <div class="empty-icon">📄</div>
+                        <h3>No PDFs in this folder</h3>
+                        <p>Upload some PDF files to get started</p>
+                        <button class="btn btn--primary" onclick="document.getElementById('fileInput').click()">
+                            📤 Upload PDFs
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- PDF Viewer Modal -->
+        <div class="modal hidden" id="pdfModal">
+            <div class="modal-backdrop" id="modalBackdrop"></div>
+            <div class="modal-content pdf-viewer">
+                <div class="modal-header">
+                    <h3 class="modal-title" id="pdfTitle">PDF Viewer</h3>
+                    <div class="pdf-controls">
+                        <button class="btn btn--sm btn--outline" id="prevPageBtn">‹ Prev</button>
+                        <span class="page-info">
+                            Page <span id="currentPage">1</span> of <span id="totalPages">1</span>
+                        </span>
+                        <button class="btn btn--sm btn--outline" id="nextPageBtn">Next ›</button>
+                        <div class="zoom-controls">
+                            <button class="btn btn--sm btn--outline" id="zoomOutBtn">🔍-</button>
+                            <span id="zoomLevel">100%</span>
+                            <button class="btn btn--sm btn--outline" id="zoomInBtn">🔍+</button>
+                        </div>
+                        <button class="btn btn--sm btn--outline" id="fullscreenBtn">⛶</button>
+                        <button class="btn btn--sm btn--outline" id="downloadBtn">💾</button>
+                    </div>
+                    <button class="modal-close" id="closeModal">✕</button>
+                </div>
+                <div class="pdf-viewer-content">
+                    <canvas id="pdfCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Context Menu -->
+        <div class="context-menu hidden" id="contextMenu">
+            <div class="context-item" data-action="open">📖 Open</div>
+            <div class="context-item" data-action="rename">✏️ Rename</div>
+            <div class="context-item" data-action="move">📁 Move to Folder</div>
+            <div class="context-item" data-action="download">💾 Download</div>
+            <div class="context-item context-divider"></div>
+            <div class="context-item context-danger" data-action="delete">🗑️ Delete</div>
+        </div>
+
+        <!-- New Folder Modal -->
+        <div class="modal hidden" id="newFolderModal">
+            <div class="modal-backdrop"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Create New Folder</h3>
+                    <button class="modal-close" onclick="closeModal('newFolderModal')">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Folder Name</label>
+                        <input type="text" class="form-control" id="folderNameInput" placeholder="Enter folder name">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn--outline" onclick="closeModal('newFolderModal')">Cancel</button>
+                    <button class="btn btn--primary" id="createFolderBtn">Create Folder</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help Modal -->
+        <div class="modal hidden" id="helpModal">
+            <div class="modal-backdrop"></div>
+            <div class="modal-content help-modal">
+                <div class="modal-header">
+                    <h3 class="modal-title">📚 PDF Manager Help</h3>
+                    <button class="modal-close" onclick="closeModal('helpModal')">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="help-section">
+                        <h4>🚀 Getting Started</h4>
+                        <ul>
+                            <li>Upload PDF files by dragging them to the upload area or clicking to browse</li>
+                            <li>Create folders to organize your documents</li>
+                            <li>Click on any PDF to view it in the built-in viewer</li>
+                            <li>Right-click on files for more options (rename, move, delete)</li>
+                        </ul>
+                    </div>
+                    <div class="help-section">
+                        <h4>⌨️ Keyboard Shortcuts</h4>
+                        <ul>
+                            <li><kbd>Ctrl/Cmd + F</kbd> - Search files</li>
+                            <li><kbd>Delete</kbd> - Delete selected file</li>
+                            <li><kbd>F2</kbd> - Rename selected file</li>
+                            <li><kbd>Escape</kbd> - Close viewer or modal</li>
+                        </ul>
+                    </div>
+                    <div class="help-section">
+                        <h4>🌐 Deploy to GitHub Pages</h4>
+                        <ol>
+                            <li>Create a new repository on GitHub</li>
+                            <li>Upload these files: <code>index.html</code>, <code>style.css</code>, <code>app.js</code></li>
+                            <li>Go to Settings > Pages</li>
+                            <li>Select "Deploy from a branch" and choose "main"</li>
+                            <li>Your PDF Manager will be available at: <code>https://yourusername.github.io/repositoryname</code></li>
+                        </ol>
+                        <div class="help-note">
+                            <strong>Note:</strong> This app stores data locally in your browser. Each deployment will have its own separate storage.
+                        </div>
+                    </div>
+                    <div class="help-section">
+                        <h4>💾 Data Management</h4>
+                        <ul>
+                            <li><strong>Export Data:</strong> Download all your files and folders as a backup</li>
+                            <li><strong>Import Data:</strong> Restore from a previous backup</li>
+                            <li><strong>Storage:</strong> Files are stored in your browser's localStorage (max ~10MB total)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay hidden" id="loadingOverlay">
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p>Processing PDF...</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Hidden file input for import -->
+    <input type="file" id="importInput" accept=".json" style="display: none;">
+
+    <script src="app.js"></script>
+</body>
+</html>
